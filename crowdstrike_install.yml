@@ -1,0 +1,42 @@
+---
+
+- hosts: test-server
+  gather_facts: true
+  serial: 1
+  vars:
+    falcon_cid: 6BD0E709A77247E19C0110BEA35B9328-70
+    falcon_sensor: falcon-sensor-6.57.0-15402.el8.x86_64.rpm
+  become: yes
+
+  tasks:
+    - name: copy crowdstrike rpm
+      ansible.builtin.get_url:
+        url: https://iscdml.disney.com/ostools/Crowdstrike_Falcon_Sensor/RHEL/"{{ falcon_sensor }}"
+        dest: /tmp/"{{ falcon_sensor }}"
+        mode: '0755'
+      when: ansible_distribution_major_version == "8"
+
+    - name: install falcon
+      yum:
+        name: /tmp/"{{ falcon_sensor }}"
+        state: present
+        disable_gpg_check: true
+      when: ansible_distribution_major_version == "8"
+
+    - name: configure sid
+      command: /opt/CrowdStrike/falconctl -s --cid="{{ falcon_cid }}"
+      ignore_errors: yes
+      when: ansible_distribution_major_version == "8"
+
+    - name: start falcon
+      command: systemctl start falcon-sensor
+      when: ansible_distribution_major_version == "8"
+
+    - name: enable falcon
+      command: systemctl enable falcon-sensor
+      when: ansible_distribution_major_version == "8"
+     
+  roles:
+  - role: crowdstrike.falcon.falcon_configure
+    vars: 
+      falcon_tags: 'CORP-EBS,QA,KMTC,supportgroup=apv-global-sap-logistics-ebs,bappid=enterprise_sap_s/4_platform'
